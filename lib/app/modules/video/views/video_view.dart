@@ -3,13 +3,9 @@ import 'package:get/get.dart';
 import 'package:tiktok/app/modules/video/controllers/video_controller.dart';
 import 'package:video_player/video_player.dart';
 
-// [VideoView] merupakan view yang menampilkan video dalam bentuk PageView
-// vertikal yang mirip dengan tampilan TikTok. Video akan diputar otomatis
-// dan ada overlay untuk title, description, dan beberapa ikon di bagian kanan.
 class VideoView extends GetView<VideoController> {
   @override
   Widget build(BuildContext context) {
-    // Ambil parameter dari Get.arguments, misalnya index awal dari video yang akan diputar
     final arguments = Get.arguments as Map<String, dynamic>;
     final initialIndex = arguments['index'] as int;
 
@@ -17,21 +13,17 @@ class VideoView extends GetView<VideoController> {
       body: Obx(() {
         return Stack(
           children: [
-            // PageView untuk menampilkan video-video secara vertikal
             PageView.builder(
               scrollDirection: Axis.vertical,
               itemCount: controller.videoList.length,
-              controller:
-                  PageController(initialPage: initialIndex), // Set initial page
+              controller: PageController(initialPage: initialIndex),
               itemBuilder: (context, index) {
                 final videoData = controller.videoList[index];
 
                 return Stack(
                   children: [
-                    // Widget untuk memutar video
-                    VideoPlayerWidget(videoUrl: videoData.videoUrl),
+                    VideoPlayerWidget(videoUrl: videoData.videoUrl, videoIndex: index),
 
-                    // Overlay untuk efek gradient dari atas ke bawah
                     Positioned.fill(
                       child: Container(
                         decoration: BoxDecoration(
@@ -47,7 +39,6 @@ class VideoView extends GetView<VideoController> {
                       ),
                     ),
 
-                    // Overlay untuk menampilkan title dan description
                     Positioned(
                       bottom: 50,
                       left: 10,
@@ -56,8 +47,7 @@ class VideoView extends GetView<VideoController> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Padding(
-                            padding:
-                                const EdgeInsets.symmetric(horizontal: 8.0),
+                            padding: const EdgeInsets.symmetric(horizontal: 8.0),
                             child: Text(
                               videoData.title,
                               style: TextStyle(
@@ -69,8 +59,7 @@ class VideoView extends GetView<VideoController> {
                           ),
                           SizedBox(height: 10),
                           Padding(
-                            padding:
-                                const EdgeInsets.symmetric(horizontal: 8.0),
+                            padding: const EdgeInsets.symmetric(horizontal: 8.0),
                             child: Text(
                               videoData.description,
                               style: TextStyle(
@@ -83,7 +72,6 @@ class VideoView extends GetView<VideoController> {
                       ),
                     ),
 
-                    // Ikon-ikon fungsionalitas (like, comment, share, bookmark, more options) di sebelah kanan
                     Positioned(
                       right: 10,
                       bottom: 60,
@@ -91,37 +79,27 @@ class VideoView extends GetView<VideoController> {
                         children: [
                           IconButton(
                             icon: Icon(Icons.favorite, color: Colors.white),
-                            onPressed: () {
-                              // Implementasikan fungsi like
-                            },
+                            onPressed: () {},
                           ),
                           SizedBox(height: 10),
                           IconButton(
                             icon: Icon(Icons.comment, color: Colors.white),
-                            onPressed: () {
-                              // Implementasikan fungsi comment
-                            },
+                            onPressed: () {},
                           ),
                           SizedBox(height: 10),
                           IconButton(
                             icon: Icon(Icons.share, color: Colors.white),
-                            onPressed: () {
-                              // Implementasikan fungsi share
-                            },
+                            onPressed: () {},
                           ),
                           SizedBox(height: 10),
                           IconButton(
                             icon: Icon(Icons.bookmark, color: Colors.white),
-                            onPressed: () {
-                              // Implementasikan fungsi bookmark
-                            },
+                            onPressed: () {},
                           ),
                           SizedBox(height: 10),
                           IconButton(
                             icon: Icon(Icons.more_vert, color: Colors.white),
-                            onPressed: () {
-                              // Implementasikan fungsi more options
-                            },
+                            onPressed: () {},
                           ),
                         ],
                       ),
@@ -131,7 +109,6 @@ class VideoView extends GetView<VideoController> {
               },
             ),
 
-            // Tombol back di pojok kiri atas
             Positioned(
               top: 10,
               left: 10,
@@ -139,7 +116,7 @@ class VideoView extends GetView<VideoController> {
                 child: IconButton(
                   icon: Icon(Icons.arrow_back, color: Colors.white),
                   onPressed: () {
-                    Get.back(); // Kembali ke halaman sebelumnya
+                    Get.back();
                   },
                 ),
               ),
@@ -151,12 +128,11 @@ class VideoView extends GetView<VideoController> {
   }
 }
 
-// [VideoPlayerWidget] adalah widget yang menghandle pemutaran video dari URL
-// yang diberikan. Widget ini menggunakan package [video_player].
 class VideoPlayerWidget extends StatefulWidget {
   final String videoUrl;
+  final int videoIndex;
 
-  const VideoPlayerWidget({Key? key, required this.videoUrl}) : super(key: key);
+  const VideoPlayerWidget({Key? key, required this.videoUrl, required this.videoIndex}) : super(key: key);
 
   @override
   _VideoPlayerWidgetState createState() => _VideoPlayerWidgetState();
@@ -164,38 +140,85 @@ class VideoPlayerWidget extends StatefulWidget {
 
 class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
   VideoPlayerController? _controller;
+  VideoPlayerController? _prevController;
+  VideoPlayerController? _nextController;
+  bool _isPreloading = false;
 
   @override
   void initState() {
     super.initState();
-    _loadVideo(); // Load video saat inisialisasi widget
+    _loadVideo();
   }
 
-  // Metode untuk load video dari URL
   void _loadVideo() {
     _controller = VideoPlayerController.network(widget.videoUrl)
       ..initialize().then((_) {
         if (mounted) {
           setState(() {});
-          _controller!.play(); // Play video setelah di-load
-          _controller!.setLooping(true); // Set video untuk loop terus menerus
+          _controller!.play();
+          _controller!.setLooping(true);
+          Future.delayed(Duration(seconds: 10), () {
+            _startPreloading();
+          });
         }
       }).catchError((error) {
         print("Error loading video: $error");
       });
   }
 
+  void _startPreloading() async {
+    if (_isPreloading) return;
+    _isPreloading = true;
+
+    final videoList = Get.find<VideoController>().videoList;
+    final prevIndex = widget.videoIndex > 0 ? widget.videoIndex - 1 : null;
+    final nextIndex = widget.videoIndex < videoList.length - 1 ? widget.videoIndex + 1 : null;
+
+    if (prevIndex != null) {
+      _prevController = await _preloadVideo(videoList[prevIndex].videoUrl);
+    }
+
+    if (nextIndex != null) {
+      _nextController = await _preloadVideo(videoList[nextIndex].videoUrl);
+    }
+
+    Future.delayed(Duration(seconds: 5), () {
+      _disposePreloadControllers();
+      _isPreloading = false;
+    });
+  }
+
+  Future<VideoPlayerController?> _preloadVideo(String url) async {
+    try {
+      final controller = VideoPlayerController.network(url);
+      await controller.initialize();
+      return controller;
+    } catch (error) {
+      print("Error preloading video: $error");
+      return null;
+    }
+  }
+
+  void _disposePreloadControllers() {
+    if (_prevController != null) {
+      _prevController!.dispose();
+      _prevController = null;
+    }
+    if (_nextController != null) {
+      _nextController!.dispose();
+      _nextController = null;
+    }
+  }
+
   @override
   void didUpdateWidget(VideoPlayerWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // Jika URL video berubah, dispose controller sebelumnya dan load video baru
     if (oldWidget.videoUrl != widget.videoUrl) {
       _disposeController();
       _loadVideo();
     }
   }
 
-  // Metode untuk dispose controller
   void _disposeController() {
     if (_controller != null) {
       _controller!.dispose();
@@ -205,7 +228,8 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
 
   @override
   void dispose() {
-    _disposeController(); // Dispose controller saat widget dihapus
+    _disposeController();
+    _disposePreloadControllers();
     super.dispose();
   }
 
@@ -213,7 +237,6 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
   Widget build(BuildContext context) {
     return Stack(
       children: [
-        // Jika video telah diinisialisasi, tampilkan video, jika tidak tampilkan loading indicator
         _controller != null && _controller!.value.isInitialized
             ? SizedBox.expand(
                 child: FittedBox(
@@ -227,7 +250,6 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
               )
             : Center(child: CircularProgressIndicator()),
 
-        // Progress bar untuk video
         if (_controller != null && _controller!.value.isInitialized)
           Positioned(
             bottom: 0,
